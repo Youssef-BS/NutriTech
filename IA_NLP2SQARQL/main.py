@@ -19,7 +19,7 @@ app.add_middleware(
 
 from fastapi.responses import JSONResponse
 
-client = genai.Client(api_key="api_code")
+client = genai.Client(api_key="AIzaSyBuzdqLkRf0ZRjJWE5G9590eDzrSttM5co")
 
 print("Gemini Client Initialized Successfully.")
 
