@@ -10,7 +10,7 @@ export interface ActivitePhysique {
 export interface Aliment {
   id: string
   nom: string
-  categorie: "cereal" | "fruit" | "legume" | "proteineAnimal" | "proteineVegetale" | "viande"
+  categorie: string
   calories: number
   proteines: number
   glucides: number
@@ -66,8 +66,49 @@ export interface Utilisateur {
   role: "admin" | "user"
 }
 
+
+const FUSEKI_ENDPOINT = "http://localhost:3030/ontologie/query"; // change this to your actual Fuseki endpoint
+
+
+async function getAlimenDataByName(name: string ): Promise<any> {
+  const prefixes = `
+    PREFIX nutri: <http://test.org/nutritech-ontology-3.owl#>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+  `;
+    // Example: Query aliment by name
+    const query = `
+    ${prefixes}
+    SELECT ?aliment ?property ?value
+    WHERE {
+      ?aliment rdf:type ?type .
+      ?type rdfs:subClassOf* nutri:Aliment .
+      ?aliment ?property ?value .
+      ?aliment nutri:AlimentNameDT ?label .
+      FILTER(CONTAINS(LCASE(?label), LCASE("${name}")))
+    }
+  `;
+  const url = `${FUSEKI_ENDPOINT}?query=${encodeURIComponent(query)}`;
+  // Send request to Fuseki
+  const response = await fetch(url, {
+    headers: { Accept: "application/sparql-results+json" },
+  });
+
+  const json = await response.json();
+
+  // Extract results
+  const results = json.results.bindings.map((b: any) => ({
+    aliment: b.aliment?.value,
+    property: b.property?.value,
+    value: b.value?.value,
+  }));
+
+  return results;
+} 
+
 // Mock data for demonstration
-export const mockAliments: Aliment[] = [
+export const mockAliments: Aliment[] =
+ [
   { id: "1", nom: "Riz", categorie: "cereal", calories: 130, proteines: 2.7, glucides: 28, lipides: 0.3 },
   { id: "2", nom: "Pomme", categorie: "fruit", calories: 52, proteines: 0.3, glucides: 14, lipides: 0.2 },
   { id: "3", nom: "Carotte", categorie: "legume", calories: 41, proteines: 0.9, glucides: 10, lipides: 0.2 },

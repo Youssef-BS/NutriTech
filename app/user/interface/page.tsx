@@ -53,21 +53,70 @@ export default function UserInterface() {
     setCurrentConversationId(id)
   }
 
-  const handleSendMessage = (text) => {
-    const newMessage = { id: messages.length + 1, text, sender: "user", timestamp: new Date() }
-    setMessages([...messages, newMessage])
+  const handleSendMessage = async (text) => {
+    // Create user message
+    const userMessage = {
+      id: messages.length + 1,
+      text,
+      sender: "user",
+      timestamp: new Date(),
+    };
+  
+    setMessages([...messages, userMessage]);
+  
+    try {
+      // Fetch response from your FastAPI endpoint
+      const response = await fetch(
+        `http://127.0.0.1:8000/nlp2sparql?prompt=${encodeURIComponent(text)}`
+      );
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+  
+      // Extract the AI response (SPARQL query or text)
+      // const assistantText = data.sparql_query || data.response || "No response from AI.";
+     
+       // FIX: Use proper JavaScript functions
+    console.log("API Response:", data); // Use console.log instead of print()
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botMessage = {
+    let assistantText;
+    if (typeof data === 'string') {
+      assistantText = data;
+    } else if (data.message) {
+      assistantText = data.message;
+    } else if (data.response) {
+      assistantText = data.response;
+    } else if (data.sparql_query) {
+      assistantText = data.sparql_query;
+    } else {
+      assistantText = JSON.stringify(data); // Use JSON.stringify instead of string()
+    }
+  
+      const assistantMessage = {
         id: messages.length + 2,
-        text: "I'm here to help with your nutrition questions!",
+        text: assistantText || "No results",
         sender: "assistant",
         timestamp: new Date(),
       }
-      setMessages((prev) => [...prev, botMessage])
-    }, 500)
-  }
+      
+  
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Error fetching AI response:", error);
+  
+      const errorMessage = {
+        id: messages.length + 2,
+        text: "⚠️ Error fetching AI response. Please try again.",
+        sender: "assistant",
+        timestamp: new Date(),
+      };
+  
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
 
   const handleLogout = () => {
     router.push("/")
