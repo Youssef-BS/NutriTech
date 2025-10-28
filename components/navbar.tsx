@@ -16,9 +16,10 @@ import { Button } from "@/components/ui/button"
 
 interface NavbarProps {
   onMenuClick?: () => void
+  onClassSelect?: (className: string) => void
 }
 
-export default function Navbar({ onMenuClick }: NavbarProps) {
+export default function Navbar({ onMenuClick, onClassSelect }: NavbarProps) {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const router = useRouter()
@@ -34,6 +35,13 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
       router.push("/admin/dashboard")
     } else {
       router.push("/user/interface")
+    }
+  }
+
+  const handleClassClick = (className: string) => {
+    setClassesOpen(false)
+    if (onClassSelect) {
+      onClassSelect(className)
     }
   }
 
@@ -60,15 +68,14 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="w-56">
-            <DropdownMenuItem onClick={() => router.push("/classes/aliments")}>Aliments</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/classes/contraintes")}>
+            <DropdownMenuItem onClick={() => handleClassClick("Aliment")}>Aliments</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleClassClick("ContrainteMédicale")}>
               Contraintes Médicales
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/classes/recettes")}>Recettes</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/classes/nutriments")}>Nutriments</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleClassClick("Recette")}>Recettes</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleClassClick("Nutriment")}>Nutriments</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/classes/utilisateurs")}>Utilisateurs</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/classes/objectifs")}>Objectifs Personnels</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleClassClick("ObjectifPersonnel")}>Objectifs Personnels</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

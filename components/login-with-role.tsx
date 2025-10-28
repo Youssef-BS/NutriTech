@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 export default function LoginWithRole() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState<"user" | "admin">("user")
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
@@ -22,6 +21,9 @@ export default function LoginWithRole() {
 
     // Simulate API call
     setTimeout(() => {
+      // Check if admin credentials
+      const role = (email === "admin" && password === "admin") ? "admin" : "user"
+      
       login(email, password, role)
       setIsLoading(false)
 
@@ -51,16 +53,16 @@ export default function LoginWithRole() {
           {/* Email Input */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-200 mb-2">
-              Email Address
+              Username
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
               <input
                 id="email"
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Enter username"
                 className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                 required
               />
@@ -83,33 +85,6 @@ export default function LoginWithRole() {
                 className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                 required
               />
-            </div>
-          </div>
-
-          {/* Role Selection */}
-          <div>
-            <label className="block text-sm font-medium text-slate-200 mb-3">Login as:</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value="user"
-                  checked={role === "user"}
-                  onChange={(e) => setRole(e.target.value as "user" | "admin")}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm text-slate-300">User</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value="admin"
-                  checked={role === "admin"}
-                  onChange={(e) => setRole(e.target.value as "user" | "admin")}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm text-slate-300">Admin</span>
-              </label>
             </div>
           </div>
 
@@ -137,20 +112,17 @@ export default function LoginWithRole() {
             <p className="text-xs text-slate-400 text-center mb-3">Demo Credentials:</p>
             <div className="space-y-2 text-xs text-slate-400">
               <p>
-                Admin: <span className="text-slate-300">admin@nutritech.com</span>
+                Admin: <span className="text-slate-300">admin / admin</span>
               </p>
               <p>
-                User: <span className="text-slate-300">user@nutritech.com</span>
-              </p>
-              <p>
-                Password: <span className="text-slate-300">password123</span>
+                User: <span className="text-slate-300">Any other credentials</span>
               </p>
             </div>
           </div>
         </form>
 
         {/* Footer */}
-        <p className="text-center text-slate-400 text-sm mt-6">Use any email and password to login.</p>
+        <p className="text-center text-slate-400 text-sm mt-6">Admin: admin/admin | User: any other credentials</p>
       </div>
     </div>
   )

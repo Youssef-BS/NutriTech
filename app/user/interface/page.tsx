@@ -122,6 +122,105 @@ export default function UserInterface() {
     router.push("/")
   }
 
+  const handleClassSelect = async (className: string) => {
+    // Add user message asking about the class
+    const userMessage = {
+      id: messages.length + 1,
+      text: `Show me all ${className} instances`,
+      sender: "user",
+      timestamp: new Date(),
+    }
+    setMessages([...messages, userMessage])
+    
+    try {
+      const FUSEKI_ENDPOINT =
+        process.env.NEXT_PUBLIC_FUSEKI_ENDPOINT || "http://localhost:3030/ontologie/query"
+
+      // Query to get all instances including from subclasses (using UNION to handle both cases)
+      const sparqlQuery = `
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX nutri: <http://test.org/nutritech-ontology-3.owl#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        
+        SELECT DISTINCT ?instance ?property ?value WHERE {
+          {
+            # Direct instances of the class
+            ?instance rdf:type nutri:${className} .
+            ?instance ?property ?value .
+            FILTER(?property != rdf:type)
+          }
+          UNION
+          {
+            # Instances of subclasses
+            ?subclass rdfs:subClassOf+ nutri:${className} .
+            ?instance rdf:type ?subclass .
+            ?instance ?property ?value .
+            FILTER(?property != rdf:type)
+          }
+        }
+        ORDER BY ?instance
+      `
+
+      const response = await fetch(FUSEKI_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/sparql-results+json",
+        },
+        body: `query=${encodeURIComponent(sparqlQuery)}`,
+      })
+
+      if (!response.ok) throw new Error(`Fuseki error: ${response.status}`)
+
+      const data = await response.json()
+      console.log(`🔍 Instances for ${className} (including subclasses):`, data.results.bindings)
+
+      // Group properties by instance
+      const instancesMap = {}
+      data.results.bindings.forEach((b) => {
+        const instanceUri = b.instance?.value
+        const instanceName = instanceUri?.split("#")[1] || instanceUri?.split("/").pop()
+        const propertyName = b.property?.value?.split("#")[1] || b.property?.value?.split("/").pop()
+        const value = b.value?.value
+
+        if (!instancesMap[instanceName]) {
+          instancesMap[instanceName] = {
+            name: instanceName,
+            properties: {}
+          }
+        }
+
+        instancesMap[instanceName].properties[propertyName] = value
+      })
+
+      const instances = Object.values(instancesMap)
+      
+      // Add assistant message with the data
+      const assistantMessage = {
+        id: messages.length + 2,
+        text: instances.length > 0 
+          ? `Found ${instances.length} instance(s) of ${className}` 
+          : `No instances found for ${className}`,
+        sender: "assistant",
+        timestamp: new Date(),
+        classData: instances, // Store the instances data
+        className: className,
+      }
+      
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      console.error(`Error fetching instances for ${className}:`, err)
+      const errorMessage = {
+        id: messages.length + 2,
+        text: `⚠️ Error fetching instances for ${className}. Please try again.`,
+        sender: "assistant",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    }
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar
@@ -137,7 +236,7 @@ export default function UserInterface() {
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+        <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} onClassSelect={handleClassSelect} />
         <ChatArea messages={messages} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <MessageInput onSendMessage={handleSendMessage} />
       </div>

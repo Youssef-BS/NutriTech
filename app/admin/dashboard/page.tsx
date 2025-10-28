@@ -7,7 +7,7 @@ import AdminNavbar from "@/components/admin/admin-navbar"
 import AdminSidebar from "@/components/admin/admin-sidebar"
 import AdminChatArea from "@/components/admin/admin-chat-area"
 import MessageInput from "@/components/message-input"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, Database, Link2 } from "lucide-react"
 
 export default function AdminDashboard() {
   const { user, isLoggedIn } = useAuth()
@@ -30,6 +30,8 @@ export default function AdminDashboard() {
   const [currentConversationId, setCurrentConversationId] = useState(1)
   const [selectedSubclass, setSelectedSubclass] = useState(null)
   const [selectedClassName, setSelectedClassName] = useState(null)
+  const [classProperties, setClassProperties] = useState([])
+  const [loadingProperties, setLoadingProperties] = useState(false)
 
   useEffect(() => {
     if (!isLoggedIn || user?.role !== "admin") {
@@ -131,11 +133,76 @@ export default function AdminDashboard() {
   const handleSelectSubclass = (className, subclass) => {
     setSelectedClassName(className)
     setSelectedSubclass(subclass)
+    fetchClassProperties(subclass.name)
+  }
+
+  const fetchClassProperties = async (className) => {
+    setLoadingProperties(true)
+    try {
+      const FUSEKI_ENDPOINT =
+        process.env.NEXT_PUBLIC_FUSEKI_ENDPOINT || "http://localhost:3030/ontologie/query"
+
+      // Query to get all instances of this class and their property values
+      const sparqlQuery = `
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX nutri: <http://test.org/nutritech-ontology-3.owl#>
+        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        
+        SELECT ?instance ?property ?value WHERE {
+          ?instance rdf:type nutri:${className} .
+          ?instance ?property ?value .
+          FILTER(?property != rdf:type)
+        }
+        ORDER BY ?instance
+      `
+
+      const response = await fetch(FUSEKI_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/sparql-results+json",
+        },
+        body: `query=${encodeURIComponent(sparqlQuery)}`,
+      })
+
+      if (!response.ok) throw new Error(`Fuseki error: ${response.status}`)
+
+      const data = await response.json()
+      console.log(`🔍 Instances and properties for ${className}:`, data.results.bindings)
+
+      // Group properties by instance
+      const instancesMap = {}
+      data.results.bindings.forEach((b) => {
+        const instanceUri = b.instance?.value
+        const instanceName = instanceUri?.split("#")[1] || instanceUri?.split("/").pop()
+        const propertyName = b.property?.value?.split("#")[1] || b.property?.value?.split("/").pop()
+        const value = b.value?.value
+
+        if (!instancesMap[instanceName]) {
+          instancesMap[instanceName] = {
+            name: instanceName,
+            properties: {}
+          }
+        }
+
+        instancesMap[instanceName].properties[propertyName] = value
+      })
+
+      const instances = Object.values(instancesMap)
+      setClassProperties(instances)
+    } catch (err) {
+      console.error(`Error fetching instances for ${className}:`, err)
+      setClassProperties([])
+    } finally {
+      setLoadingProperties(false)
+    }
   }
 
   const handleBackToConversations = () => {
     setSelectedSubclass(null)
     setSelectedClassName(null)
+    setClassProperties([])
   }
 
   return (
@@ -154,7 +221,7 @@ export default function AdminDashboard() {
           {/* Left Panel - Conversations or Subclass Items */}
           <div className="w-80 border-r border-slate-200/50 dark:border-slate-800/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl overflow-y-auto">
             {selectedSubclass ? (
-              <div className="p-4 space-y-2">
+              <div className="p-4 space-y-3">
                 <button
                   onClick={handleBackToConversations}
                   className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4 transition-colors font-medium hover:translate-x-1 transition-transform duration-200"
@@ -162,17 +229,54 @@ export default function AdminDashboard() {
                   <ChevronLeft size={16} />
                   Back to Conversations
                 </button>
-                <h3 className="font-bold text-base mb-4 text-slate-900 dark:text-slate-100">{selectedSubclass.name}</h3>
-                <div className="space-y-2">
-                  {selectedSubclass.examples.map((example, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 transition-all duration-200 cursor-pointer text-sm font-medium text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 dark:hover:border-purple-500/30 hover:scale-[1.02] shadow-sm hover:shadow-md"
-                    >
-                      {example}
-                    </div>
-                  ))}
+                
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-xl text-white shadow-lg">
+                  <h3 className="font-bold text-lg mb-1">{selectedSubclass.name}</h3>
+                  <p className="text-xs text-blue-100">Instances from Ontology Database</p>
                 </div>
+
+                {loadingProperties ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin text-2xl">⏳</div>
+                    <span className="ml-3 text-sm text-slate-600 dark:text-slate-400">Loading properties...</span>
+                  </div>
+                ) : classProperties.length > 0 ? (
+                  <div className="space-y-3">
+                    {classProperties.map((instance, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-xl bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-500/50 dark:hover:border-purple-500/50 transition-all duration-200 cursor-pointer hover:scale-[1.02] shadow-sm hover:shadow-lg"
+                      >
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                            {instance.name.charAt(0).toUpperCase()}
+                          </div>
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                            {instance.name}
+                          </h4>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {Object.entries(instance.properties).map(([propName, propValue]) => (
+                            <div key={propName} className="flex items-start justify-between gap-2 text-xs">
+                              <span className="font-medium text-slate-600 dark:text-slate-400 min-w-[100px]">
+                                {propName}:
+                              </span>
+                              <span className="text-slate-900 dark:text-slate-100 font-semibold text-right flex-1 truncate">
+                                {String(propValue)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-2">�</div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">No instances found for this class</p>
+                  </div>
+                )}
               </div>
             ) : (
               // Show conversations by default
